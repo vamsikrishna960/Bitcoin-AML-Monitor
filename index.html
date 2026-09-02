@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BitcoinAML — Live Crypto Transaction Risk Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+
+  :root {
+    --bg: #0a0e14; --panel: #111721; --panel-2: #161e2b; --border: #1f2937;
+    --text: #e6edf3; --text-dim: #7d8a9c; --green: #2ee6a0; --amber: #ffb340;
+    --red: #ff4d6d; --blue: #4d9fff; --orange: #f7931a; --accent: #f7931a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(circle at 20% 10%, rgba(247,147,26,0.05), transparent 40%),
+                      radial-gradient(circle at 80% 90%, rgba(77,159,255,0.04), transparent 40%);
+    color: var(--text); font-family: 'Spline Sans Mono', monospace; min-height: 100vh; padding: 24px;
+  }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
+  .brand h1 { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 600; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+  .btc-icon { color: var(--orange); font-size: 30px; }
+  .brand h1 .dot { color: var(--orange); }
+  .brand p { color: var(--text-dim); font-size: 12px; margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(46,230,160,0.6); animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(46,230,160,0.6); } 70% { box-shadow: 0 0 0 8px rgba(46,230,160,0); } 100% { box-shadow: 0 0 0 0 rgba(46,230,160,0); } }
+
+  .controls { display: flex; gap: 12px; margin-bottom: 20px; align-items: center; }
+  .btn { background: var(--orange); color: #2a1600; border: none; padding: 10px 18px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn:hover { opacity: 0.9; }
+  .refresh-info { font-size: 11px; color: var(--text-dim); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .stat::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; }
+  .stat.total::before { background: var(--orange); }
+  .stat.high::before { background: var(--red); }
+  .stat.btc::before { background: var(--blue); }
+  .stat.avg::before { background: var(--green); }
+  .stat .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .stat .value { font-family: 'Fraunces', serif; font-size: 34px; font-weight: 600; margin-top: 8px; }
+  .stat .value.red { color: var(--red); }
+  .stat .value.orange { color: var(--orange); }
+  .stat .value.blue { color: var(--blue); }
+
+  .main { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .panel-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .panel-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); font-weight: 500; }
+  .feed { max-height: 560px; overflow-y: auto; }
+  .feed::-webkit-scrollbar { width: 6px; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .txn { padding: 14px 20px; border-bottom: 1px solid var(--border); display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; cursor: pointer; }
+  .txn:hover { background: var(--panel-2); }
+  .risk-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .risk-dot.LOW { background: var(--green); }
+  .risk-dot.MEDIUM { background: var(--amber); }
+  .risk-dot.HIGH { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .txn-info .id { font-size: 12px; font-weight: 500; font-family: 'Spline Sans Mono', monospace; }
+  .txn-info .meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .txn-amount { text-align: right; font-size: 15px; font-weight: 600; color: var(--orange); }
+  .txn-badge { font-size: 10px; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; display: inline-block; }
+  .txn-badge.LOW { background: rgba(46,230,160,0.12); color: var(--green); }
+  .txn-badge.MEDIUM { background: rgba(255,179,64,0.12); color: var(--amber); }
+  .txn-badge.HIGH { background: rgba(255,77,109,0.12); color: var(--red); }
+  .side { display: flex; flex-direction: column; gap: 16px; }
+  .bar-row { padding: 12px 20px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .bar-track { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .bar-fill.LOW { background: var(--green); }
+  .bar-fill.MEDIUM { background: var(--amber); }
+  .bar-fill.HIGH { background: var(--red); }
+  .ai-txn-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ai-txn-id { font-size: 11px; color: var(--text-dim); word-break: break-all; }
+  .ai-typing { font-size: 13px; line-height: 1.7; color: var(--text); animation: fadeIn 0.5s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .footer { margin-top: 24px; text-align: center; color: var(--text-dim); font-size: 11px; letter-spacing: 0.5px; }
+  .footer span { color: var(--orange); }
+  .loading { padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  .error { padding: 20px; background: rgba(255,77,109,0.1); border: 1px solid var(--red); border-radius: 8px; color: var(--red); font-size: 12px; line-height: 1.6; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <h1><span class="btc-icon">₿</span>Bitcoin<span class="dot">AML</span></h1>
+      <p>Live Crypto Transaction Risk Monitor</p>
+    </div>
+    <div class="status">
+      <div class="pulse"></div>
+      <span id="status-text">Connecting…</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="loadData()">↻ Refresh Data</button>
+    <span class="refresh-info" id="refresh-info">Reads real AML analysis of live Bitcoin transactions (n8n + Groq AI)</span>
+  </div>
+
+  <div id="error-box"></div>
+
+  <div class="stats">
+    <div class="stat total"><div class="label">Transactions Analysed</div><div class="value orange" id="stat-total">—</div></div>
+    <div class="stat high"><div class="label">High Risk</div><div class="value red" id="stat-high">—</div></div>
+    <div class="stat btc"><div class="label">Total BTC Flagged</div><div class="value blue" id="stat-btc">—</div></div>
+    <div class="stat avg"><div class="label">Largest Transfer</div><div class="value" id="stat-max">—</div></div>
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Flagged Transaction Feed (Live)</h2>
+        <span style="font-size:11px;color:var(--text-dim)" id="feed-count">—</span>
+      </div>
+      <div class="feed" id="feed"><div class="loading">Loading Bitcoin transactions from your pipeline…</div></div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <div class="panel-head"><h2>Risk Distribution</h2></div>
+        <div style="padding: 8px 0 16px;">
+          <div class="bar-row"><div class="bar-label"><span style="color:var(--green)">Low</span><span id="pct-low">—</span></div><div class="bar-track"><div class="bar-fill LOW" id="bar-low" style="width:0%"></div></div></div>
+          <div class="bar-row"><div class="bar-label"><span style="color:var(--amber)">Medium</span><span id="pct-medium">—</span></div><div class="bar-track"><div class="bar-fill MEDIUM" id="bar-medium" style="width:0%"></div></div></div>
+          <div class="bar-row"><div class="bar-label"><span style="color:var(--red)">High</span><span id="pct-high">—</span></div><div class="bar-track"><div class="bar-fill HIGH" id="bar-high" style="width:0%"></div></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>🤖 AI Analysis (Groq)</h2><span style="font-size:11px;color:var(--orange)">live</span></div>
+        <div id="ai-analysis" style="padding:16px 20px;min-height:140px;">
+          <div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px 0;">Click any transaction to see the AI's crypto AML analysis.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    BitcoinAML — Live Build &nbsp;·&nbsp; Built by <span>Vamsi Krishna Gali</span> &nbsp;·&nbsp; Real AML analysis of live Bitcoin blockchain transactions
+  </div>
+
+<script>
+  // ====== YOUR PUBLISHED GOOGLE SHEET (CSV) ======
+  // n8n + Groq write AML analysis here; the dashboard reads it live.
+  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQk4N-lmr5lI-BmnKoA9wDuH-kFcaZP1e9h8S45TlqZ2LcfQdaOgSlKwPdyF0ZDlIxEVsqW9lERxfEC/pub?gid=0&single=true&output=csv";
+
+  let transactions = [];
+
+  function parseCSV(text) {
+    const rows = [];
+    let cur = '', row = [], inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        if (inQuotes && text[i+1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) { row.push(cur); cur = ''; }
+      else if ((c === '\n' || c === '\r') && !inQuotes) {
+        if (c === '\r' && text[i+1] === '\n') i++;
+        row.push(cur); rows.push(row); row = []; cur = '';
+      } else cur += c;
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter(r => r.some(cell => cell.trim() !== ''));
+  }
+
+  function normaliseRisk(val) {
+    if (!val) return 'LOW';
+    const v = val.toUpperCase();
+    if (v.startsWith('HIGH') || v.includes('HIGH')) return 'HIGH';
+    if (v.startsWith('MEDIUM') || v.includes('MEDIUM') || v.includes('MED')) return 'MEDIUM';
+    return 'LOW';
+  }
+
+  function fmtBtc(n) {
+    const num = parseFloat(String(n).replace(/[^0-9.]/g, ''));
+    return isNaN(num) ? n : '₿' + num.toLocaleString(undefined, {maximumFractionDigits: 8});
+  }
+  function shortHash(h) { return h && h.length > 16 ? h.slice(0, 10) + '…' + h.slice(-6) : h; }
+
+  async function loadData() {
+    document.getElementById('status-text').textContent = 'Fetching latest data…';
+    document.getElementById('error-box').innerHTML = '';
+    try {
+      const res = await fetch(SHEET_CSV_URL + '&_=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error('No data rows found in the sheet.');
+
+      const headers = rows[0].map(h => h.trim());
+      const idx = name => headers.indexOf(name);
+
+      transactions = rows.slice(1).map(r => {
+        const analysis = r[idx('ai_analysis')] || 'No analysis available.';
+        return {
+          hash: r[idx('hash')] || '—',
+          btc: r[idx('total_btc')] || '0',
+          fee: r[idx('fee')] || '—',
+          outputs: r[idx('num_outputs')] || '—',
+          level: normaliseRisk(r[idx('risk_level')] || analysis),
+          analysis: analysis
+        };
+      }).filter(t => t.hash && t.hash !== '—');
+
+      render();
+      document.getElementById('status-text').textContent = 'LIVE — ' + transactions.length + ' transactions analysed';
+    } catch (err) {
+      document.getElementById('status-text').textContent = 'Connection issue';
+      document.getElementById('error-box').innerHTML =
+        '<div class="error"><strong>Could not load the sheet.</strong><br>' +
+        'Check that the Google Sheet is published to web as CSV and that column names match ' +
+        '(hash, total_btc, fee, num_outputs, risk_level, ai_analysis).<br>Detail: ' + err.message + '</div>';
+      document.getElementById('feed').innerHTML = '<div class="loading">No data loaded yet.</div>';
+    }
+  }
+
+  function render() {
+    const stats = { total: 0, LOW: 0, MEDIUM: 0, HIGH: 0 };
+    let totalBtc = 0, maxBtc = 0;
+    const feed = document.getElementById('feed');
+    feed.innerHTML = '';
+
+    transactions.forEach(txn => {
+      stats.total++;
+      stats[txn.level]++;
+      const btcNum = parseFloat(String(txn.btc).replace(/[^0-9.]/g, '')) || 0;
+      totalBtc += btcNum;
+      if (btcNum > maxBtc) maxBtc = btcNum;
+
+      const row = document.createElement('div');
+      row.className = 'txn';
+      row.onclick = () => showAnalysis(txn);
+      row.innerHTML = `
+        <div class="risk-dot ${txn.level}"></div>
+        <div class="txn-info">
+          <div class="id">${shortHash(txn.hash)}</div>
+          <div class="meta">Fee: ${txn.fee} · ${txn.outputs} outputs</div>
+        </div>
+        <div>
+          <div class="txn-amount">${fmtBtc(txn.btc)}</div>
+          <span class="txn-badge ${txn.level}">${txn.level}</span>
+        </div>`;
+      feed.appendChild(row);
+    });
+
+    if (!transactions.length) feed.innerHTML = '<div class="loading">No transactions in the sheet yet.</div>';
+
+    document.getElementById('stat-total').textContent = stats.total;
+    document.getElementById('stat-high').textContent = stats.HIGH;
+    document.getElementById('stat-btc').textContent = '₿' + totalBtc.toLocaleString(undefined, {maximumFractionDigits: 4});
+    document.getElementById('stat-max').textContent = '₿' + maxBtc.toLocaleString(undefined, {maximumFractionDigits: 4});
+    document.getElementById('feed-count').textContent = stats.total + ' analysed';
+
+    const pct = lvl => stats.total ? Math.round((stats[lvl]/stats.total)*100) : 0;
+    ['LOW','MEDIUM','HIGH'].forEach(lvl => {
+      document.getElementById('bar-' + lvl.toLowerCase()).style.width = pct(lvl) + '%';
+      document.getElementById('pct-' + lvl.toLowerCase()).textContent = pct(lvl) + '%';
+    });
+
+    const firstHigh = transactions.find(t => t.level === 'HIGH') || transactions[0];
+    if (firstHigh) showAnalysis(firstHigh);
+  }
+
+  function showAnalysis(txn) {
+    document.getElementById('ai-analysis').innerHTML = `
+      <div class="ai-txn-header">
+        <span class="txn-badge ${txn.level}">${txn.level} RISK</span>
+        <span class="ai-txn-id">${fmtBtc(txn.btc)} · ${txn.outputs} outputs</span>
+      </div>
+      <div class="ai-typing">${txn.analysis}</div>`;
+  }
+
+  loadData();
+</script>
+</body>
+</html>
