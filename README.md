@@ -7,6 +7,15 @@ Unlike a demo running on sample data, this pulls genuine transactions happening 
 🎥 Demo & Live Links
 ▶️ Video walkthrough (V2 — Structuring Detection): https://youtu.be/lnmPTF57m9s
 🌐 Live dashboard: https://vamsikrishna960.github.io/Bitcoin-AML-Monitor/
+
+## 🌟 Published n8n Template
+
+This workflow is officially published in the **n8n template 
+library** — available for the entire n8n community to use.
+
+- 📦 View / use the template: https://n8n.io/workflows/19422
+
+  
 💡 What It Does
 
 Every incoming Bitcoin transaction is analysed against key crypto AML red flags:
